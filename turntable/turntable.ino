@@ -1,8 +1,10 @@
 //http://chdk.wikia.com/wiki/USB_Remote_Cable
 
+#include "TimerOne.h"
+
 #define shutterPin A0
 #define buttonPin 2
-#define ledPin 4
+#define ledPin 5
 #define DC_CW 10
 #define DC_CCW 11
 
@@ -20,91 +22,136 @@ typedef enum {
 ButtonState btnStatus = BTN_STATE_RELEASED;
 ButtonInput btnInput = STANDBY;
 unsigned long btnPressed_time;
+unsigned long event_time;
+
+typedef enum {
+    ON,
+    OFF,
+    SELECTING,
+    WORKING
+} LEDState;
+LEDState ledStatus = ON;
+
 
 #define blinqSequenceArr 7
 #define wait 1250
-unsigned long blinqSequence[] = {wait /*OFF*/, 100/*ON*/, wait /*OFF[1]*/, 100 /*ON*/, 100 /*OFF*/, 100 /*ON*/, wait /*OFF[2]*/};
+unsigned long blinqSequence[] = {wait /*OFF*/, 150/*ON*/, wait /*OFF[1]*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/, wait /*OFF[2]*/};
+int blinkVar = 0;
 
-void setup() {
+void setup()
+{
   pinMode(shutterPin,OUTPUT);
   digitalWrite(shutterPin,LOW);
 
   pinMode(buttonPin,INPUT_PULLUP);
-
   pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin,HIGH);
-
-  pinMode(DC_CW, OUTPUT);
-  pinMode(DC_CCW, OUTPUT);
-  analogWrite(DC_CW, 0);
-  analogWrite(DC_CCW, 0);
   
-  Serial.begin(9600);
+  Timer1.initialize(5000);         // initialize timer1, and set a 1/2 second period
+  Timer1.attachInterrupt(driveLED);  // attaches driveLED() as a timer overflow interrupt
 }
+ 
+void driveLED()
+{
+    switch(ledStatus)
+    {
+      case ON:
+          digitalWrite(ledPin, 1);
+          break;
 
-void loop() {
+        case OFF:
+          digitalWrite(ledPin, 0);
+          break;
+
+        case WORKING:
+        {
+            int x = (millis()-event_time) % 1000;
+            if (x <= 500) { analogWrite(ledPin, map(x, 0, 500, 0, 200)); }
+            else
+            {  analogWrite(ledPin, map((x-1000)*-1, 0, 500, 0, 200)); }
+        }
+        break;
+          
+      case SELECTING:{
+            unsigned long timeNow = millis();
+            unsigned long sum = btnPressed_time;   
+            
+            for(int i=1; i<blinqSequenceArr; i++)
+            {
+              sum += blinqSequence[i-1];
+              if (sum < timeNow && sum + blinqSequence[i] > timeNow)
+              {
+                int j = i-1;
+                //[i]-th time interval
+                digitalWrite(ledPin, !((j)%(int)2));
+                if (i == 2) btnInput = FUNCTION1;
+                if (i == 6) btnInput = FUNCTION2;
+                break;
+              }
+              if (i==blinqSequenceArr-1) {
+                digitalWrite(ledPin, timeNow > sum + wait);
+                //btnInput = STANDBY;
+              }
+            }
+      }
+          break;
+
+    }
+}
+ 
+void loop()
+{
     int btnVal = digitalRead(buttonPin);
   
     switch(btnStatus)
     {
     case BTN_STATE_PRESSED:
-        
-        ProcessButtonInput();
+
+        //if (btnInput == STANDBY) {
+        SetLedState(SELECTING);
        
         if(btnVal == HIGH) // Handle button release
         {
-            if (btnInput == FUNCTION2) {
+            SetLedState(WORKING);
+            
+            if (btnInput == FUNCTION1) {
               delay(1000);
               for (int i=0; i <= 5; i++){
                 TurnOneStep();
               }
 
               btnInput = STANDBY;
-            };
+              SetLedState(ON);
+            }
+            else  if (btnInput == FUNCTION2) {
+                  Turn();
+              };
             
             Serial.println(btnInput);
             digitalWrite(ledPin,HIGH);
             btnStatus = BTN_STATE_RELEASED;
-        }
-
+          }
+        //}
         break;
 
     case BTN_STATE_RELEASED:
         
         if(btnVal == LOW) // Handle button press
         {
-            btnStatus = BTN_STATE_PRESSED;
-            
-            btnPressed_time = millis();
-            digitalWrite(ledPin,LOW);
-        }
+              btnStatus = BTN_STATE_PRESSED;
+              btnPressed_time = millis();
+              digitalWrite(ledPin,LOW);
+            }
+  
         break;
     }
 }
 
-void ProcessButtonInput(){
-  unsigned long timeNow = millis();
-  unsigned long sum = btnPressed_time;  
-  
-  for(int i=1; i<blinqSequenceArr; i++)
-  {
-    sum += blinqSequence[i-1];
-    
-    if (sum < timeNow && sum + blinqSequence[i] > timeNow)
-    {
-      int j = i-1;
-      //[i]-th time interval
-      digitalWrite(ledPin, !((j)%(int)2));
-      if (i == 2) btnInput = FUNCTION1;
-      if (i == 6) btnInput = FUNCTION2;
-      break;
-    }
-    if (i==blinqSequenceArr-1) {
-      digitalWrite(ledPin, timeNow > sum + wait);
-      btnInput = STANDBY;
-    }
-  }
+
+void SetLedState(LEDState newState){
+    ledStatus = newState;
+    event_time = millis();
 }
+
 
 
 void TurnOneStep(){
@@ -113,6 +160,12 @@ void TurnOneStep(){
   analogWrite(DC_CCW, 0);
   delay(2000);
 }
+
+
+void Turn(){
+  analogWrite(DC_CCW, 75);
+}
+
 
 void triggerCHDKOnePush(){
   digitalWrite(shutterPin, HIGH);
