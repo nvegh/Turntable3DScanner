@@ -36,7 +36,7 @@ LEDState ledStatus = ON;
 #define blinqSequenceArr 7
 #define wait 1250
 unsigned long blinqSequence[] = {wait /*OFF*/, 150/*ON*/, wait /*OFF[1]*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/, wait /*OFF[2]*/};
-int blinkVar = 0;
+bool job = false;
 
 void setup()
 {
@@ -46,11 +46,11 @@ void setup()
   pinMode(buttonPin,INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
   
-  Timer1.initialize(5000);         // initialize timer1, and set a 1/2 second period
-  Timer1.attachInterrupt(driveLED);  // attaches driveLED() as a timer overflow interrupt
+  Timer1.initialize(5000);
+  Timer1.attachInterrupt(processIO);
 }
  
-void driveLED()
+void processIO()
 {
     switch(ledStatus)
     {
@@ -89,48 +89,66 @@ void driveLED()
               }
               if (i==blinqSequenceArr-1) {
                 digitalWrite(ledPin, timeNow > sum + wait);
-                //btnInput = STANDBY;
+                btnInput = STANDBY;
               }
             }
       }
           break;
-
     }
 }
  
 void loop()
 {
+    delay(50);
     int btnVal = digitalRead(buttonPin);
   
     switch(btnStatus)
     {
     case BTN_STATE_PRESSED:
 
-        //if (btnInput == STANDBY) {
-        SetLedState(SELECTING);
+        
+        if (job == false) {   SetLedState(SELECTING); }
        
         if(btnVal == HIGH) // Handle button release
         {
+          if (job == false ){
             SetLedState(WORKING);
+            job = true;
             
-            if (btnInput == FUNCTION1) {
-              delay(1000);
-              for (int i=0; i <= 5; i++){
-                TurnOneStep();
-              }
+            switch (btnInput){
 
-              btnInput = STANDBY;
-              SetLedState(ON);
-            }
-            else  if (btnInput == FUNCTION2) {
+              case STANDBY:
+                  SetLedState(ON);
+                  job = false;
+              break;
+     
+              case FUNCTION1:
                   Turn();
-              };
-            
-            Serial.println(btnInput);
-            digitalWrite(ledPin,HIGH);
-            btnStatus = BTN_STATE_RELEASED;
+              break;
+              
+              case FUNCTION2:
+                delay(1000);
+                for (int i=0; i <= 5; i++){
+                  TurnOneStep();
+                }
+                btnInput = STANDBY;
+                SetLedState(ON);
+                job = false;
+              break;
+
+
+            }
           }
-        //}
+          else {  //button pressed during operation
+              job = false;
+              btnInput = STANDBY;
+             SetLedState(ON);
+             analogWrite(DC_CCW, 0);
+            
+            }
+            //Serial.println(btnInput);
+            btnStatus = BTN_STATE_RELEASED;
+        }
         break;
 
     case BTN_STATE_RELEASED:
@@ -139,7 +157,7 @@ void loop()
         {
               btnStatus = BTN_STATE_PRESSED;
               btnPressed_time = millis();
-              digitalWrite(ledPin,LOW);
+              SetLedState(OFF);
             }
   
         break;
