@@ -2,7 +2,9 @@
 
 #define shutterPin A0
 #define buttonPin 2
-#define ledPin 13
+#define ledPin 4
+#define DC_CW 10
+#define DC_CCW 11
 
 typedef enum {
     BTN_STATE_RELEASED,
@@ -32,6 +34,11 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin,HIGH);
 
+  pinMode(DC_CW, OUTPUT);
+  pinMode(DC_CCW, OUTPUT);
+  analogWrite(DC_CW, 0);
+  analogWrite(DC_CCW, 0);
+  
   Serial.begin(9600);
 }
 
@@ -46,7 +53,14 @@ void loop() {
        
         if(btnVal == HIGH) // Handle button release
         {
-            if (btnInput == FUNCTION2) triggerTwoPush();
+            if (btnInput == FUNCTION2) {
+              delay(1000);
+              for (int i=0; i <= 5; i++){
+                TurnOneStep();
+              }
+
+              btnInput = STANDBY;
+            };
             
             Serial.println(btnInput);
             digitalWrite(ledPin,HIGH);
@@ -90,18 +104,24 @@ void ProcessButtonInput(){
       btnInput = STANDBY;
     }
   }
-
 }
 
 
-void triggerOnePush(){
+void TurnOneStep(){
+  analogWrite(DC_CCW, 100);
+  delay(60); //1 fog
+  analogWrite(DC_CCW, 0);
+  delay(2000);
+}
+
+void triggerCHDKOnePush(){
   digitalWrite(shutterPin, HIGH);
   delay(50);
   digitalWrite(shutterPin,LOW);
 }
 
 
-void triggerTwoPush(){
+void triggerCHDKTwoPush(){
   digitalWrite(shutterPin, HIGH);
   delay(500);
   digitalWrite(shutterPin,LOW);
