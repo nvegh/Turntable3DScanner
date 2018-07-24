@@ -1,8 +1,9 @@
 //http://chdk.wikia.com/wiki/USB_Remote_Cable
+//cancelling while trigger photo?
 
 #include "TimerOne.h"
 
-#define shutterPin A0
+#define shutterPin 13 // A0
 #define buttonPin 2
 #define ledPin 5
 #define DC_CW 10
@@ -35,11 +36,14 @@ int funcVal;
 
 void setup() {
   pinMode(buttonPin,INPUT_PULLUP);
+  
   pinMode(shutterPin,OUTPUT);
   digitalWrite(shutterPin,LOW);
-  pinMode(ledPin, OUTPUT);
   
-  Timer1.initialize(10000);
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin,HIGH);
+  
+  Timer1.initialize(50000);
   Timer1.attachInterrupt(processIO);
 
   Serial.begin(9600);
@@ -133,27 +137,36 @@ void loop() {
         case STANDBY:
             analogWrite(DC_CW, 0);
             analogWrite(DC_CCW, 0);
+            digitalWrite(shutterPin,LOW);
         break;
 
         case CANCELLED:
             analogWrite(DC_CW, 0);
             analogWrite(DC_CCW, 0);
-        break;
-        
-        case FUNCTION2_RUNNING:
-            Turn();
+            digitalWrite(shutterPin,LOW);
         break;
         
         case FUNCTION1_RUNNING: {
           unsigned int timeNow = millis();
-          int i = (timeNow-funcTime) / (int)2000;
-          int m = (timeNow-funcTime) % 2000;
+          unsigned int i = (timeNow-funcTime) / (int)2000;
+          unsigned int m = (timeNow-funcTime) % 2000;
+          
           if (m<60) analogWrite(DC_CCW, 100); else analogWrite(DC_CCW, 0);
-          if (i!=funcVal) { funcVal=i;  triggerCHDKTwoPush(); Serial.println("shoot!");}
-          if (i>=3) btnInput = STANDBY;
+
+          if (i!=funcVal) {
+              // Serial.println(m);
+              if (m>300 && m<850) digitalWrite(shutterPin, HIGH); else { digitalWrite(shutterPin,LOW); }
+              if (m>1000 && m<1200) digitalWrite(shutterPin, HIGH); else { digitalWrite(shutterPin,LOW); }
+              if (m>1950) funcVal=i;
+              }
+              
+          if (i>=8) btnInput = STANDBY;
         }
         break;
 
+        case FUNCTION2_RUNNING:
+            analogWrite(DC_CCW, 60);
+        break;
         }
 }
 
@@ -164,11 +177,6 @@ void TurnOneStep(){
   delay(60); //1 fog
   analogWrite(DC_CCW, 0);
   delay(2000);
-}
-
-
-void Turn(){
-  analogWrite(DC_CCW, 75);
 }
 
 
