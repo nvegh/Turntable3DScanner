@@ -24,14 +24,18 @@ typedef enum {
     STANDBY,
     CANCELLED,
     FUNCTION1_RUNNING,
-    FUNCTION2_RUNNING
+    FUNCTION2_RUNNING,
+    FUNCTION3_RUNNING
 } ButtonInput;
 ButtonInput btnInput = STANDBY;
 ButtonInput _tmpInput = NULL;
 
-#define blinqSequenceArr 7
+#define blinqSequenceArr 13
 #define wait 1250
-unsigned long blinqSequence[] = {wait /*OFF*/, 150/*ON*/, wait /*OFF[1]*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/, wait /*OFF[2]*/};
+unsigned long blinqSequence[] = { wait /*OFF*/, 150/*ON*/,
+                                  wait /*OFF[1]*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/,
+                                  wait /*OFF[2]*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/, 150 /*OFF*/, 150 /*ON*/,
+                                  wait /*OFF[3]*/};
 
 int funcVal;
 
@@ -97,6 +101,7 @@ void processIO() {
                 digitalWrite(ledPin, !((j)%(int)2));
                 if (i == 2) _tmpInput = FUNCTION1_RUNNING;
                 if (i == 6) _tmpInput = FUNCTION2_RUNNING;
+                if (i == 12) _tmpInput = FUNCTION3_RUNNING;
                 break;
               }
               if (i==blinqSequenceArr-1) {
@@ -148,10 +153,11 @@ void loop() {
         break;
         
         case FUNCTION1_RUNNING: {
-          unsigned int timeNow = millis();
-          unsigned int i = (timeNow-funcTime) / (int)2000;
+         
+          unsigned long timeNow = millis();
+          unsigned long i = (timeNow-funcTime) / (int)2000;
           unsigned int m = (timeNow-funcTime) % 2000;
-          
+           
           if (m<60) analogWrite(DC_CCW, 100); else analogWrite(DC_CCW, 0);
 
           if (i!=funcVal) {
@@ -173,8 +179,11 @@ void loop() {
             
             if (tmpReleased != btnReleased_time && millis()-btnReleased_time< 60) analogWrite(DC_CCW, 100);
              else { analogWrite(DC_CCW, 0); tmpReleased = btnReleased_time; }
-            
-            
+        break;
+
+
+        case FUNCTION3_RUNNING:
+            analogWrite(DC_CCW, 60);
         break;
         }
 }
