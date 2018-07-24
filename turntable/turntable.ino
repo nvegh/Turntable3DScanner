@@ -18,6 +18,7 @@ ButtonState btnStatus = BTN_STATE_RELEASED;
 unsigned long btnPressed_time = 0;
 unsigned long btnReleased_time = 0;
 unsigned long funcTime = 0;
+unsigned long tmpReleased = 0;
 
 typedef enum {
     STANDBY,
@@ -165,7 +166,15 @@ void loop() {
         break;
 
         case FUNCTION2_RUNNING:
-            analogWrite(DC_CCW, 60);
+            //analogWrite(DC_CCW, 60);
+            //Serial.print(tmpReleased);
+            //Serial.print("  ");
+            //Serial.println(btnReleased_time);
+            
+            if (tmpReleased != btnReleased_time && millis()-btnReleased_time< 60) analogWrite(DC_CCW, 100);
+             else { analogWrite(DC_CCW, 0); tmpReleased = btnReleased_time; }
+            
+            
         break;
         }
 }
